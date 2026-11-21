@@ -1,11 +1,23 @@
-const CACHE = "arya-club-reports-v4";
-const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-512.png"];
+// نسخه کش را با هر تغییر در آیکن/منیفست/صفحه بالا ببرید تا کش قدیمی پاک شود
+const CACHE = "arya-club-reports-v5";
+const FILES = [
+  "./",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./icon-v2-512.png",
+];
+
+// این فایل‌ها همیشه اول از شبکه گرفته می‌شوند تا تغییر آیکن/منیفست
+// هیچ‌وقت پشت کش قدیمی گیر نکند
+const NETWORK_FIRST = /(manifest\.webmanifest|icon[^/]*\.png)(\?.*)?$/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(FILES))
+      .then((cache) =>
+        cache.addAll(FILES.map((f) => new Request(f, { cache: "reload" }))),
+      )
       .then(() => self.skipWaiting()),
   );
 });
@@ -26,14 +38,13 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (
-    event.request.method !== "GET" ||
-    !event.request.url.startsWith(self.registration.scope)
-  )
+  const req = event.request;
+  if (req.method !== "GET" || !req.url.startsWith(self.registration.scope))
     return;
-  if (event.request.mode === "navigate") {
+
+  if (req.mode === "navigate") {
     event.respondWith(
-      fetch(event.request)
+      fetch(req)
         .then(async (response) => {
           if (response.ok)
             (await caches.open(CACHE)).put("./index.html", response.clone());
@@ -41,11 +52,16 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => caches.match("./index.html")),
     );
-  } else {
+  } else if (NETWORK_FIRST.test(req.url)) {
     event.respondWith(
-      caches
-        .match(event.request)
-        .then((cached) => cached || fetch(event.request)),
+      fetch(req, { cache: "reload" })
+        .then(async (response) => {
+          if (response.ok) (await caches.open(CACHE)).put(req, response.clone());
+          return response;
+        })
+        .catch(() => caches.match(req)),
     );
+  } else {
+    event.respondWith(caches.match(req).then((cached) => cached || fetch(req)));
   }
 });
