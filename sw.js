@@ -1,5 +1,5 @@
 // نسخه کش را با هر تغییر در آیکن/منیفست/صفحه بالا ببرید تا کش قدیمی پاک شود
-const CACHE = "arya-club-reports-v5";
+const CACHE = "arya-club-reports-v6";
 const FILES = [
   "./",
   "./index.html",
